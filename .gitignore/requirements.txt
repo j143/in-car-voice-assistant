@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+venv/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# Data & Models
+data/raw/
+data/synthetic/*.jsonl
+data/processed/
+models/vosk_models/
+checkpoints/
+*.pt
+*.bin
+*.wav
+*.mp3
+
+# Jupyter & Logs
+.ipynb_checkpoints/
+logs/
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+
+# Environment
+.env
+.env.local
