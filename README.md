@@ -32,6 +32,26 @@ python scripts/benchmark_latency.py --runs 10 --text "Set temperature to 72"
 
 Vosk STT: download a Vosk model to `models/vosk_models/en_us` and install `vosk` (already listed in `requirements.txt`). Then use `--audio` with raw PCM16 input.
 
+## Experiments
+
+Run a small evaluation and latency benchmark across configurations:
+
+```bash
+PYTHONPATH=. python scripts/experiments.py tests/sample_eval.jsonl --runs 10 --text "Set temperature to 72"
+```
+
+Label a text file quickly:
+
+```bash
+PYTHONPATH=. python scripts/label_dataset.py tests/sample_texts.txt tests/labeled.jsonl
+```
+
+Telemetry simulation:
+
+```bash
+python scripts/telemetry_sim.py
+```
+
 ## Overview
 
 This project implements a production-ready in-car voice command system inspired by real-world EV cabin scenarios. The architecture supports:

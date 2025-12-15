@@ -67,3 +67,13 @@ class FAISSVehicleRAG:
         query_vec = np.array(query_emb).astype("float32")
         distances, indices = self._index.search(query_vec, top_k)
         return [self.documents[i] for i in indices[0] if 0 <= i < len(self.documents)]
+
+    def retrieve_context(self, query: str, command: str) -> dict:
+        """Mirror VehicleRAG.retrieve_context contract."""
+        docs = self.retrieve(query, top_k=3)
+        return {
+            "context": {"docs": docs, "procedure": "Context from FAISS index"},
+            "success": bool(docs),
+            "query": query,
+            "command": command,
+        }

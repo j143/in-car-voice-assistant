@@ -35,8 +35,13 @@ class VoiceAssistantPipeline:
         if classifier_type == "svm":
             try:
                 from models.command_classifier_svm import SVMCommandClassifier
-                self.classifier = SVMCommandClassifier()  # requires fit() to be useful
-                logger.info("Using SVMCommandClassifier")
+                svm = SVMCommandClassifier()
+                # Use only if it provides the same interface; otherwise fallback
+                if hasattr(svm, "classify"):
+                    self.classifier = svm
+                    logger.info("Using SVMCommandClassifier")
+                else:
+                    logger.warning("SVMCommandClassifier has no classify(), falling back to rule-based")
             except Exception as e:
                 logger.warning("Falling back to rule-based CommandClassifier: %s", e)
 

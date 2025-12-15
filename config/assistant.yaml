@@ -1,0 +1,7 @@
+# Component selection and defaults
+nlu_model_name: distilbert-base-uncased-finetuned-sst-2-english
+classifier_type: rule   # rule | svm
+rag_type: kb            # kb | faiss | off
+stt_model_path: models/vosk_models/en_us
+sample_text: Set temperature to 72
+runs: 10
