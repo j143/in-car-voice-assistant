@@ -1,6 +1,11 @@
-# In-Car Voice Assistant
+# In-Car Voice Assistant: Edge-Optimized SLM Deployment
 
-An end-to-end in-car voice assistant system with Speech-to-Text (STT) → Natural Language Understanding (NLU) → Command Execution pipeline. Optimized for edge deployment with quantized LLMs, parameter-efficient fine-tuning (LoRA/QLoRA), RAG integration, and robust out-of-distribution (OOD) detection.
+**Strategic Goal:** Deploy a domain-adapted Small Language Model (SLM) for in-vehicle voice assistants on NVIDIA Orin edge hardware, achieving:
+- **Latency:** <100ms per query
+- **Accuracy:** >90% on automotive technical nomenclature (error codes, part numbers)
+- **Memory:** <2GB footprint for edge deployment
+
+An end-to-end system implementing Speech-to-Text (STT) → Natural Language Understanding (NLU) → Command Execution pipeline, optimized for edge deployment with QLoRA fine-tuning, AWQ quantization, and automotive domain adaptation.
 
 ## Quick Start
 

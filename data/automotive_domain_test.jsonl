@@ -1,0 +1,15 @@
+{"id":0,"intent":"error_handling","text":"Error code P0420 on catalyst system efficiency below threshold","technical_terms":["catalyst system"],"error_codes":["P0420"],"command":"diagnose_error","expected":"P0420: Catalyst System Efficiency Below Threshold"}
+{"id":1,"intent":"error_handling","text":"DTC P0171 fuel system too lean bank 1","technical_terms":["DTC","fuel system","bank 1"],"error_codes":["P0171"],"command":"diagnose_error","expected":"P0171: Fuel System Too Lean (Bank 1)"}
+{"id":2,"intent":"error_handling","text":"K 300 503 v17 battery management module fault","technical_terms":["K 300 503 v17","battery management module"],"error_codes":[],"command":"battery_warning","expected":"Battery management module issue"}
+{"id":3,"intent":"climate_control","text":"Set HVAC to 21 celsius","technical_terms":["HVAC"],"error_codes":[],"command":"set_temperature","expected":"21C"}
+{"id":4,"intent":"error_handling","text":"A 000 420 17 20 brake pad replacement required","technical_terms":["A 000 420 17 20","brake pad"],"error_codes":[],"command":"brake_warning","expected":"Brake pad part A 000 420 17 20"}
+{"id":5,"intent":"navigation","text":"Navigate using GPS to service center","technical_terms":["GPS"],"error_codes":[],"command":"navigate","expected":"route to service center"}
+{"id":6,"intent":"error_handling","text":"TPMS alert front right tire 28 PSI","technical_terms":["TPMS","PSI"],"error_codes":[],"command":"tpms_alert","expected":"Front right tire pressure low"}
+{"id":7,"intent":"error_handling","text":"ECU malfunction code P0300 random misfire detected","technical_terms":["ECU"],"error_codes":["P0300"],"command":"diagnose_error","expected":"P0300: Random/Multiple Cylinder Misfire"}
+{"id":8,"intent":"music_control","text":"Stream audio via USB","technical_terms":[],"error_codes":[],"command":"play_music","expected":"USB audio source"}
+{"id":9,"intent":"ood","text":"Calculate the square root of 144","technical_terms":[],"error_codes":[],"command":"unknown","expected":"out of domain"}
+{"id":10,"intent":"error_handling","text":"ABS module code C1234 hydraulic pump motor circuit malfunction","technical_terms":["ABS","hydraulic pump motor"],"error_codes":["C1234"],"command":"diagnose_error","expected":"C1234: ABS Hydraulic Pump Motor Circuit"}
+{"id":11,"intent":"climate_control","text":"Enable recirculation mode","technical_terms":["recirculation mode"],"error_codes":[],"command":"adjust_climate","expected":"Recirculation on"}
+{"id":12,"intent":"error_handling","text":"ESC warning light fault code C1095","technical_terms":["ESC"],"error_codes":["C1095"],"command":"diagnose_error","expected":"C1095: Electronic Stability Control"}
+{"id":13,"intent":"navigation","text":"Display ETA to destination","technical_terms":["ETA"],"error_codes":[],"command":"show_eta","expected":"estimated time of arrival"}
+{"id":14,"intent":"ood","text":"What's the weather like today?","technical_terms":[],"error_codes":[],"command":"unknown","expected":"out of domain"}

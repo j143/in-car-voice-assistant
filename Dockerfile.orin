@@ -1,0 +1,30 @@
+# NVIDIA Jetson Orin Edge Deployment
+FROM nvcr.io/nvidia/pytorch:23.10-py3
+
+WORKDIR /app
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsndfile1 \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python dependencies (minimal for inference)
+COPY requirements-min.txt ./
+RUN pip install --no-cache-dir -r requirements-min.txt
+
+# Optional: Install TensorRT-LLM for optimal performance
+# RUN pip install tensorrt_llm==0.5.0
+
+# Copy application
+COPY . .
+
+# Expose model directory for mounting
+VOLUME ["/app/models"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD python -c "from pipeline.end_to_end import VoiceAssistantPipeline; p = VoiceAssistantPipeline(use_rag=False); print('OK')"
+
+# Default command: run text-based assistant
+CMD ["python", "scripts/run_assistant.py", "--text", "Error code P0420 detected", "--classifier", "rule", "--rag", "off"]

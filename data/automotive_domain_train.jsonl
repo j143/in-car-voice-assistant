@@ -1,0 +1,25 @@
+{"id":0,"intent":"climate_control","text":"Set cabin temperature to 22 degrees celsius","technical_terms":[],"error_codes":[],"command":"set_temperature","parameters":{"temperature":22,"unit":"C"}}
+{"id":1,"intent":"error_handling","text":"Error code P0420 detected on ECU","technical_terms":["ECU"],"error_codes":["P0420"],"command":"diagnose_error","parameters":{"code":"P0420"}}
+{"id":2,"intent":"error_handling","text":"Battery low warning K 300 503 v17","technical_terms":["K 300 503 v17"],"error_codes":[],"command":"battery_warning","parameters":{"part":"K 300 503 v17"}}
+{"id":3,"intent":"music_control","text":"Play music via bluetooth","technical_terms":[],"error_codes":[],"command":"play_music","parameters":{"source":"bluetooth"}}
+{"id":4,"intent":"navigation","text":"Navigate to nearest charging station","technical_terms":[],"error_codes":[],"command":"navigate","parameters":{"destination":"charging station"}}
+{"id":5,"intent":"climate_control","text":"Turn on heated seats","technical_terms":[],"error_codes":[],"command":"adjust_seat","parameters":{"heat":"on"}}
+{"id":6,"intent":"error_handling","text":"Tire pressure monitoring system alert for front left tire","technical_terms":["TPMS"],"error_codes":[],"command":"tpms_alert","parameters":{"tire":"front_left"}}
+{"id":7,"intent":"music_control","text":"Next track","technical_terms":[],"error_codes":[],"command":"next_track","parameters":{}}
+{"id":8,"intent":"error_handling","text":"ABS warning light on","technical_terms":["ABS"],"error_codes":[],"command":"abs_warning","parameters":{}}
+{"id":9,"intent":"navigation","text":"Route to airport terminal 3","technical_terms":[],"error_codes":[],"command":"navigate","parameters":{"destination":"airport terminal 3"}}
+{"id":10,"intent":"climate_control","text":"Increase fan speed to level 4","technical_terms":[],"error_codes":[],"command":"adjust_climate","parameters":{"fan_speed":4}}
+{"id":11,"intent":"error_handling","text":"Engine control unit fault code P0171","technical_terms":["ECU"],"error_codes":["P0171"],"command":"diagnose_error","parameters":{"code":"P0171"}}
+{"id":12,"intent":"error_handling","text":"Check engine light DTC P0300","technical_terms":["DTC"],"error_codes":["P0300"],"command":"diagnose_error","parameters":{"code":"P0300"}}
+{"id":13,"intent":"music_control","text":"Set volume to 60 percent","technical_terms":[],"error_codes":[],"command":"set_volume","parameters":{"level":60}}
+{"id":14,"intent":"error_handling","text":"ESC system malfunction","technical_terms":["ESC"],"error_codes":[],"command":"esc_warning","parameters":{}}
+{"id":15,"intent":"climate_control","text":"Defrost windshield","technical_terms":[],"error_codes":[],"command":"defrost","parameters":{"target":"windshield"}}
+{"id":16,"intent":"error_handling","text":"Brake pad wear sensor triggered part number A 000 420 17 20","technical_terms":["A 000 420 17 20"],"error_codes":[],"command":"brake_warning","parameters":{"part":"A 000 420 17 20"}}
+{"id":17,"intent":"navigation","text":"Show traffic on route","technical_terms":[],"error_codes":[],"command":"show_traffic","parameters":{}}
+{"id":18,"intent":"error_handling","text":"Low coolant level warning","technical_terms":[],"error_codes":[],"command":"coolant_warning","parameters":{}}
+{"id":19,"intent":"music_control","text":"Pause playback","technical_terms":[],"error_codes":[],"command":"pause_music","parameters":{}}
+{"id":20,"intent":"ood","text":"What is the capital of France?","technical_terms":[],"error_codes":[],"command":"unknown","parameters":{}}
+{"id":21,"intent":"ood","text":"Tell me a joke","technical_terms":[],"error_codes":[],"command":"unknown","parameters":{}}
+{"id":22,"intent":"error_handling","text":"Airbag system fault B1318","technical_terms":[],"error_codes":["B1318"],"command":"diagnose_error","parameters":{"code":"B1318"}}
+{"id":23,"intent":"climate_control","text":"Set rear zone temperature to 20C","technical_terms":[],"error_codes":[],"command":"set_temperature","parameters":{"temperature":20,"zone":"rear","unit":"C"}}
+{"id":24,"intent":"error_handling","text":"Transmission control module error U0101","technical_terms":["TCM"],"error_codes":["U0101"],"command":"diagnose_error","parameters":{"code":"U0101"}}
