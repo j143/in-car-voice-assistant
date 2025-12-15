@@ -52,20 +52,19 @@ class VoskSTTEngine:
         self.current_confidence = 0.0
         self.last_result = None
         
-        try:
-            import vosk
-            self.vosk = vosk
-            # Initialize recognizer (lazy load in practice)
-            self._recognizer = None
-        except ImportError:
-            logger.error("vosk package not found. Install: pip install vosk")
-            raise
+        # Defer heavy imports until first use to keep imports light
+        self.vosk = None
+        self._recognizer = None
     
     def _get_recognizer(self):
         """Lazy load recognizer on first use."""
         if self._recognizer is None:
             try:
                 from vosk import Model, KaldiRecognizer
+            except ImportError:
+                logger.error("vosk package not found. Install with: pip install vosk")
+                raise
+            try:
                 model = Model(self.model_path)
                 self._recognizer = KaldiRecognizer(model, self.sample_rate)
             except Exception as e:
@@ -83,31 +82,17 @@ class VoskSTTEngine:
         
         Args:
             audio_chunks: List of raw audio byte chunks
-            partial_results: Return partial transcriptions
+            partial_results: Ignored in this method; use get_partial_transcriptions()
             
         Returns:
             TranscriptionResult with text and confidence
         """
         recognizer = self._get_recognizer()
-        final_result = None
         
         try:
             for chunk in audio_chunks:
-                if recognizer.AcceptWaveform(chunk):
-                    result = json.loads(recognizer.Result())
-                    if "result" in result:
-                        final_result = result["result"]
-                    if "text" in result:
-                        self.last_result = result["text"]
-                        
-                if partial_results:
-                    partial = json.loads(recognizer.PartialResult())
-                    if "partial" in partial:
-                        yield TranscriptionResult(
-                            text=partial["partial"],
-                            confidence=0.5,  # Partial confidence
-                            is_partial=True
-                        )
+                recognizer.AcceptWaveform(chunk)
+                _ = recognizer.Result()
             
             # Get final result
             final = json.loads(recognizer.FinalResult())
@@ -118,12 +103,28 @@ class VoskSTTEngine:
                     text=final["text"],
                     confidence=self.current_confidence
                 )
-        
         except Exception as e:
             logger.error(f"Transcription error: {e}")
             return TranscriptionResult(text="", confidence=0.0)
         
         return TranscriptionResult(text="", confidence=0.0)
+
+    def get_partial_transcriptions(self, audio_chunks: List[bytes]):
+        """Yield partial transcription results for streaming UI updates."""
+        recognizer = self._get_recognizer()
+        try:
+            for chunk in audio_chunks:
+                if recognizer.AcceptWaveform(chunk):
+                    result = json.loads(recognizer.Result())
+                    if "text" in result:
+                        self.last_result = result["text"]
+                        yield TranscriptionResult(text=result["text"], confidence=0.5, is_partial=True)
+                else:
+                    partial = json.loads(recognizer.PartialResult())
+                    if "partial" in partial and partial["partial"]:
+                        yield TranscriptionResult(text=partial["partial"], confidence=0.5, is_partial=True)
+        except Exception as e:
+            logger.error(f"Partial transcription error: {e}")
     
     def get_confidence(self) -> float:
         """Get confidence score of last transcription."""
