@@ -1,0 +1,4 @@
+# Minimal runtime for text-only pipeline (no NLU model downloads)
+numpy==1.24.3
+requests==2.31.0
+tqdm==4.66.1

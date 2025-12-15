@@ -2,6 +2,36 @@
 
 An end-to-end in-car voice assistant system with Speech-to-Text (STT) → Natural Language Understanding (NLU) → Command Execution pipeline. Optimized for edge deployment with quantized LLMs, parameter-efficient fine-tuning (LoRA/QLoRA), RAG integration, and robust out-of-distribution (OOD) detection.
 
+## Quick Start
+
+Text-only run (no heavy deps):
+
+```bash
+pip install -r requirements-min.txt
+python scripts/run_assistant.py --text "Set temperature to 72"
+```
+
+Enable NLU (Hugging Face model):
+
+```bash
+pip install -r requirements-nlu.txt
+python scripts/run_assistant.py --text "Open the driver window"
+```
+
+FAISS-backed RAG (optional):
+
+```bash
+pip install -r requirements-rag.txt
+```
+
+Latency benchmark:
+
+```bash
+python scripts/benchmark_latency.py --runs 10 --text "Set temperature to 72"
+```
+
+Vosk STT: download a Vosk model to `models/vosk_models/en_us` and install `vosk` (already listed in `requirements.txt`). Then use `--audio` with raw PCM16 input.
+
 ## Overview
 
 This project implements a production-ready in-car voice command system inspired by real-world EV cabin scenarios. The architecture supports:
