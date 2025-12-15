@@ -9,35 +9,68 @@ An end-to-end system implementing Speech-to-Text (STT) → Natural Language Unde
 
 ## Quick Start
 
-Text-only run (no heavy deps):
+**Baseline evaluation** (rule-based, no ML dependencies):
 
 ```bash
 pip install -r requirements-min.txt
-python scripts/run_assistant.py --text "Set temperature to 72"
+PYTHONPATH=. python scripts/evaluate_domain.py --test data/automotive_domain_test.jsonl
 ```
 
-Enable NLU (Hugging Face model):
+**Current baseline:** 20% accuracy on technical terms (Target: >90%)  
+**Gap:** Need domain adaptation via QLoRA fine-tuning
+
+Text command processing:
 
 ```bash
-pip install -r requirements-nlu.txt
-python scripts/run_assistant.py --text "Open the driver window"
+PYTHONPATH=. python scripts/run_assistant.py --text "Error code P0420 detected on ECU"
 ```
 
-FAISS-backed RAG (optional):
+Run experiments across configurations:
 
 ```bash
-pip install -r requirements-rag.txt
+PYTHONPATH=. python scripts/experiments.py data/automotive_domain_test.jsonl --runs 5
 ```
-
-Latency benchmark:
-
-```bash
-python scripts/benchmark_latency.py --runs 10 --text "Set temperature to 72"
-```
-
-Vosk STT: download a Vosk model to `models/vosk_models/en_us` and install `vosk` (already listed in `requirements.txt`). Then use `--audio` with raw PCM16 input.
 
 ## Experiments
+
+### Domain Adaptation Workflow
+
+**1. Baseline Evaluation**
+```bash
+PYTHONPATH=. python scripts/evaluate_domain.py --test data/automotive_domain_test.jsonl
+```
+*Expected: ~20% accuracy (rule-based) → Need fine-tuning*
+
+**2. QLoRA Fine-Tuning** (requires GPU + `requirements-train.txt`)
+```bash
+pip install -r requirements-train.txt
+python scripts/train_qlora.py \
+  --model microsoft/phi-2 \
+  --train data/automotive_domain_train.jsonl \
+  --output checkpoints/automotive-adapter \
+  --epochs 3 \
+  --batch-size 4
+```
+
+**3. AWQ Export for Edge** (requires `requirements-awq.txt`)
+```bash
+pip install -r requirements-awq.txt
+python scripts/export_awq.py \
+  --model microsoft/phi-2 \
+  --adapter checkpoints/automotive-adapter \
+  --output exports/automotive-awq-4bit \
+  --w-bit 4
+```
+
+**4. Performance Tracking**
+
+Open `notebooks/edge_optimization.ipynb` to track:
+- Baseline vs QLoRA vs AWQ performance
+- Latency profiling (<100ms target)
+- Memory footprint (<2GB target)
+- Technical term recognition rate (>90% target)
+
+### Quick Experiments
 
 Run a small evaluation and latency benchmark across configurations:
 
@@ -59,13 +92,28 @@ python scripts/telemetry_sim.py
 
 ## Overview
 
-This project implements a production-ready in-car voice command system inspired by real-world EV cabin scenarios. The architecture supports:
+This project implements an **edge-optimized voice command system** for automotive environments, targeting **NVIDIA Jetson Orin** deployment. The architecture follows a research-to-production workflow:
 
-- **Lightweight STT**: Vosk-based speech recognition optimized for in-car noise
-- **Quantized NLU**: 4-bit/8-bit quantized small language models (Phi-3-mini, Mistral-7B)
-- **Command Classification**: SVM-based intent recognition with OOD filtering
-- **RAG Component**: FAISS-indexed vehicle manuals and specs for context-aware responses
-- **Parameter-Efficient Fine-Tuning**: LoRA/QLoRA adapters on 8GB RAM constraints
+### Current Status (Phase 1-2)
+- ✅ **Data:** Domain-specific automotive dataset with error codes (P0420, P0171), part numbers (K 300 503 v17), technical terms (ECU, TPMS, ABS)
+- ✅ **Baseline:** Rule-based classifier achieving <100ms latency (✓) but 20% accuracy (❌ target: >90%)
+- ✅ **Pipeline:** Modular STT → NLU → Classification → RAG with selector flags
+- ✅ **Evaluation:** Domain-specific metrics for technical term and error code recognition
+
+### Roadmap (Phase 3-4)
+- 🔄 **QLoRA Fine-Tuning:** Domain adaptation on 25+ automotive samples → target >90% accuracy
+- 🔄 **AWQ Quantization:** 4-bit export for <2GB memory footprint on Orin
+- 🔄 **TensorRT-LLM:** Optimize inference to <100ms with AWQ kernels
+- 📋 **Edge Deployment:** Docker container with health checks for Jetson Orin
+
+### Architecture Components
+
+- **Lightweight STT**: Vosk-based speech recognition (optional, lazy-loaded)
+- **Quantized NLU**: 4-bit quantized small language models (Phi-2, Phi-3-mini)
+- **Command Classification**: Rule-based (baseline) + SVM + optional ML classifier
+- **Domain Adaptation**: QLoRA fine-tuning on automotive technical nomenclature
+- **Edge Quantization**: AWQ for activation-aware 4-bit deployment
+- **RAG Component**: Optional FAISS-indexed vehicle specs for context
 
 ## Project Structure
 
@@ -313,11 +361,24 @@ trainer.train()
 
 ## Benchmarks
 
-Target metrics on GitHub Codespaces (8GB RAM):
-- **Inference Latency**: < 500ms per query (STT + NLU + retrieval)
-- **Memory Usage**: < 7GB (model + data)
-- **Intent Accuracy**: > 90% on synthetic test set
-- **OOD Detection F1**: > 0.85
+**Performance Targets (NVIDIA Orin Edge)**
+
+| Metric | Target | Baseline | QLoRA | AWQ 4-bit |
+|--------|--------|----------|-------|-----------|
+| **Accuracy** (technical terms) | >90% | 20% ❌ | TBD | TBD |
+| **Latency** (avg, text path) | <100ms | 0.01ms ✅ | TBD | TBD |
+| **Memory** (inference) | <2GB | <0.1GB ✅ | ~2.5GB | <2GB |
+| **Error Code Recognition** | >85% | 0% ❌ | TBD | TBD |
+
+**Test Set:** 15 automotive domain samples with:
+- Error codes: P0420, P0171, P0300, C1234, B1318, U0101
+- Technical terms: ECU, TPMS, ABS, ESC, DTC, hydraulic pump motor
+- Part numbers: K 300 503 v17, A 000 420 17 20
+
+**Run benchmarks:**
+```bash
+PYTHONPATH=. python scripts/evaluate_domain.py --test data/automotive_domain_test.jsonl
+```
 
 ## References
 
