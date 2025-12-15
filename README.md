@@ -254,23 +254,20 @@ python scripts/prepare_synthetic.py
 
 ## Usage
 
-### End-to-End Inference
+### End-to-End Inference (selectors)
 
 ```python
-from pipeline.end_to_end import InCarVoiceAssistant
+from pipeline.end_to_end import VoiceAssistantPipeline
 
-assistant = InCarVoiceAssistant(
-    stt_model='vosk',
-    nlu_model='microsoft/phi-3-mini',
-    quantization='4bit',
-    use_rag=True
+assistant = VoiceAssistantPipeline(
+    use_rag=True,
+    nlu_model_name='distilbert-base-uncased-finetuned-sst-2-english',
+    classifier_type='rule',   # or 'svm'
+    rag_type='kb'             # or 'faiss'
 )
 
-# Process audio
-result = assistant.process_audio(audio_bytes)
-print(f"Intent: {result['intent']}")
-print(f"Confidence: {result['confidence']}")
-print(f"Response: {result['response']}")
+# Process text (fast path)
+print(assistant.process_text("Set temperature to 72"))
 ```
 
 ### Training with LoRA

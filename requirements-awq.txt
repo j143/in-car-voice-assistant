@@ -1,0 +1,4 @@
+# Optional AWQ export dependencies (example; verify versions per environment)
+autoawq==0.2.6
+transformers==4.35.2
+torch==2.0.1

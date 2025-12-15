@@ -10,9 +10,12 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--text", type=str, help="Process a plain text command (bypasses STT)")
     group.add_argument("--audio", type=Path, help="Path to raw PCM16 audio file to process")
+    parser.add_argument("--classifier", choices=["rule", "svm"], default="rule", help="Classifier backend")
+    parser.add_argument("--rag", choices=["kb", "faiss", "off"], default="kb", help="RAG backend")
     args = parser.parse_args()
 
-    pipeline = VoiceAssistantPipeline(use_rag=True)
+    use_rag = args.rag != "off"
+    pipeline = VoiceAssistantPipeline(use_rag=use_rag, classifier_type=args.classifier, rag_type=(args.rag if use_rag else "kb"))
 
     if args.text is not None:
         result = pipeline.process_text(args.text)

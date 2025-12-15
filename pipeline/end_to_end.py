@@ -18,6 +18,8 @@ class VoiceAssistantPipeline:
         self,
         use_rag: bool = True,
         nlu_model_name: str = "distilbert-base-uncased-finetuned-sst-2-english",
+        classifier_type: str = "rule",  # 'rule' | 'svm'
+        rag_type: str = "kb",  # 'kb' | 'faiss'
     ) -> None:
         """Initialize and wire all components.
 
@@ -27,8 +29,26 @@ class VoiceAssistantPipeline:
         """
         self.stt = VoskSTTEngine()
         self.nlu = QuantizedNLUPipeline(model_name=nlu_model_name)
+
+        # Classifier selection with safe fallback
         self.classifier = CommandClassifier()
+        if classifier_type == "svm":
+            try:
+                from models.command_classifier_svm import SVMCommandClassifier
+                self.classifier = SVMCommandClassifier()  # requires fit() to be useful
+                logger.info("Using SVMCommandClassifier")
+            except Exception as e:
+                logger.warning("Falling back to rule-based CommandClassifier: %s", e)
+
+        # RAG selection with safe fallback
         self.rag = VehicleRAG() if use_rag else None
+        if use_rag and rag_type == "faiss":
+            try:
+                from models.rag_faiss import FAISSVehicleRAG
+                self.rag = FAISSVehicleRAG()
+                logger.info("Using FAISSVehicleRAG")
+            except Exception as e:
+                logger.warning("Falling back to KB VehicleRAG: %s", e)
         logger.info("VoiceAssistantPipeline initialized")
 
     def process_audio(self, audio_data: bytes) -> Dict[str, Any]:
