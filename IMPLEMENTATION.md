@@ -293,3 +293,99 @@ print(result)
 
 - Phase 3: Implement fine-tuning with LoRA/QLoRA
 - Phase 4: Containerization and CI/CD
+- 
+## Phase 3: Fine-tuning with LoRA/QLoRA
+
+### Overview
+Phase 3 focuses on parameter-efficient fine-tuning of quantized language models using LoRA (Low-Rank Adaptation) and QLoRA techniques.
+
+#### models/lora_tuner.py
+```python
+"""LoRA/QLoRA fine-tuning wrapper."""
+from typing import Optional, Dict, Any
+import torch
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+
+class LoRAFinetuner:
+    def __init__(self, model_name="microsoft/phi-3-mini", lora_rank=16):
+        self.model_name = model_name
+        self.lora_rank = lora_rank
+        self.model = None
+        self.peft_model = None
+    
+    def load_model(self) -> None:
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.model_name,
+            quantization_config=bnb_config,
+            device_map="auto"
+        )
+        self.model = prepare_model_for_kbit_training(self.model)
+    
+    def setup_peft(self) -> None:
+        lora_config = LoraConfig(
+            r=self.lora_rank,
+            lora_alpha=32,
+            target_modules=["q_proj", "v_proj"],
+            lora_dropout=0.05,
+            bias="none",
+            task_type="CAUSAL_LM"
+        )
+        self.peft_model = get_peft_model(self.model, lora_config)
+```
+
+---
+
+## Phase 4: Containerization and CI/CD
+
+### Overview
+Phase 4 implements Docker containerization and GitHub Actions CI/CD pipeline for automated testing and deployment.
+
+#### Dockerfile
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    libsndfile1 ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+
+CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0"]
+```
+
+#### tests/test_pipeline.py
+```python
+import pytest
+import numpy as np
+from pipeline.end_to_end import InCarVoiceAssistant
+
+@pytest.fixture
+def assistant():
+    return InCarVoiceAssistant(use_rag=True)
+
+def test_stt_transcription(assistant):
+    audio_bytes = b"\x00" * 16000
+    result = assistant.process_audio(audio_bytes)
+    assert "transcript" in result
+
+def test_intent_classification(assistant):
+    intent, confidence = assistant.classifier.predict(np.random.randn(10, 768))
+    assert intent in ["music_control", "navigation", "climate_control", "ood"]
+    assert 0 <= confidence <= 1
+```
