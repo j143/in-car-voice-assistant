@@ -1,5 +1,6 @@
 # AWQ export dependencies (optional, for edge deployment)
-autoawq>=0.2.0
+# Using llm-compressor (maintained by vLLM) instead of deprecated autoawq
+llm-compressor[transformers]>=0.2.0
 transformers>=4.38.0
 torch>=2.0.1
 accelerate>=0.21.0

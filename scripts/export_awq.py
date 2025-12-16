@@ -2,6 +2,7 @@
 
 Exports model with Activation-aware Weight Quantization for NVIDIA Orin deployment.
 Target: <100ms inference on Jetson Orin with <2GB memory footprint.
+Uses llm-compressor (vLLM's maintained fork) instead of deprecated autoawq.
 """
 
 from __future__ import annotations
@@ -16,42 +17,54 @@ def export_awq_model(
     output_dir: Path,
     w_bit: int = 4,
 ):
-    """Export model with AWQ quantization."""
+    """Export model with AWQ quantization using llm-compressor."""
     try:
-        from awq import AutoAWQForCausalLM  # type: ignore
-        from transformers import AutoTokenizer  # type: ignore
+        from llmcompressor.transformers import oneshot
+        from llmcompressor.modifiers.quantization import GPTQModifier
+        from transformers import AutoTokenizer, AutoModelForCausalLM  # type: ignore
     except ImportError:
         print("AWQ dependencies not available. Install requirements-awq.txt")
-        print("pip install autoawq transformers")
+        print("pip install 'llm-compressor[transformers]'")
         return
 
     print(f"Loading model: {model_name}")
     
-    # Load model (merge adapter if provided)
+    # Load model and tokenizer
     if adapter_path and adapter_path.exists():
         print(f"Loading with LoRA adapter from {adapter_path}")
-        # For production: merge adapter weights before quantization
-        # model = AutoAWQForCausalLM.from_pretrained(model_name)
-        # model.load_adapter(adapter_path)
-        # model = model.merge_and_unload()
+        from peft import PeftModel  # type: ignore
+        base_model = AutoModelForCausalLM.from_pretrained(model_name)
+        model = PeftModel.from_pretrained(base_model, str(adapter_path))
+        model = model.merge_and_unload()
+    else:
+        model = AutoModelForCausalLM.from_pretrained(model_name)
     
-    model = AutoAWQForCausalLM.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     
-    # Quantize
-    print(f"Quantizing to {w_bit}-bit with AWQ...")
-    quant_config = {"zero_point": True, "q_group_size": 128, "w_bit": w_bit}
+    # Configure AWQ quantization
+    print(f"Quantizing to {w_bit}-bit with AWQ using llm-compressor...")
     
-    # Note: Real AWQ requires calibration data
-    # For production, pass calibration samples:
-    # model.quantize(tokenizer, quant_config=quant_config, calib_data=calib_samples)
+    # Create quantization recipe
+    recipe = GPTQModifier(
+        targets="Linear",
+        scheme="W4A16",  # 4-bit weights, 16-bit activations
+        ignore=["lm_head"],  # Don't quantize output layer
+    )
     
-    print(f"Saving quantized model to {output_dir}")
+    # Apply quantization
     output_dir.mkdir(parents=True, exist_ok=True)
-    model.save_quantized(str(output_dir))
-    tokenizer.save_pretrained(str(output_dir))
+    oneshot(
+        model=model,
+        tokenizer=tokenizer,
+        recipe=recipe,
+        output_dir=str(output_dir),
+        # For better accuracy, provide calibration data:
+        # dataset="your-calibration-dataset",
+        # num_calibration_samples=512,
+    )
     
-    print("Export complete. Deploy with TensorRT-LLM for optimal performance.")
+    print(f"Quantized model saved to {output_dir}")
+    print("Export complete. Deploy with TensorRT-LLM or vLLM for optimal performance.")
 
 
 def main():

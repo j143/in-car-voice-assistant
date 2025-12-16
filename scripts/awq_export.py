@@ -2,7 +2,8 @@
 
 This script demonstrates how one would invoke AWQ (Activation-aware Weight Quantization)
 to export a quantized model for edge inference. It requires optional dependencies
-in requirements-awq.txt and will not run without them.
+in requirements-awq.txt and will not run without them. Uses llm-compressor (vLLM's
+maintained fork) instead of deprecated autoawq.
 """
 
 from __future__ import annotations
@@ -17,23 +18,31 @@ def main():
     args = ap.parse_args()
 
     try:
-        from awq import AutoAWQForCausalLM  # type: ignore
-        from transformers import AutoTokenizer  # type: ignore
+        from llmcompressor.transformers import oneshot
+        from llmcompressor.modifiers.quantization import GPTQModifier
+        from transformers import AutoTokenizer, AutoModelForCausalLM  # type: ignore
     except Exception as e:
         print("AWQ dependencies not installed. Install requirements-awq.txt. Error:", e)
         return
 
     print("Loading model", args.model)
-    model = AutoAWQForCausalLM.from_pretrained(args.model)
+    model = AutoModelForCausalLM.from_pretrained(args.model)
     tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=True)
 
-    print("Quantizing with AWQ (defaults)")
-    # Example: model.quantize(...) depending on the specific API version.
-    # Placeholder: actual parameters depend on AutoAWQ version and GPU availability.
+    print("Quantizing with AWQ using llm-compressor")
+    recipe = GPTQModifier(
+        targets="Linear",
+        scheme="W4A16",
+        ignore=["lm_head"],
+    )
 
     print("Saving to", args.out)
-    model.save_quantized(args.out)
-    tokenizer.save_pretrained(args.out)
+    oneshot(
+        model=model,
+        tokenizer=tokenizer,
+        recipe=recipe,
+        output_dir=args.out,
+    )
     print("Done.")
 
 
