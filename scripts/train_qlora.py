@@ -125,7 +125,7 @@ def train_qlora(
         save_strategy="epoch",
         warmup_steps=10,
         optim="paged_adamw_8bit",
-        report_to=["none"],  # Can enable MLFlow here
+        report_to=["mlflow"] if use_mlflow else ["none"],
         remove_unused_columns=False,
     )
 
@@ -153,6 +153,7 @@ def main():
     ap.add_argument("--epochs", type=int, default=3)
     ap.add_argument("--batch-size", type=int, default=4)
     ap.add_argument("--lora-rank", type=int, default=16)
+    ap.add_argument("--mlflow", action="store_true", help="Enable MLflow logging via report_to")
     args = ap.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -163,6 +164,7 @@ def main():
         epochs=args.epochs,
         batch_size=args.batch_size,
         lora_rank=args.lora_rank,
+        use_mlflow=args.mlflow,
     )
 
 
