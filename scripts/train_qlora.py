@@ -127,6 +127,7 @@ def train_qlora(
         optim="paged_adamw_8bit",
         report_to=["none"],  # Can enable MLFlow here
         remove_unused_columns=False,
+        use_cache=False,  # Added to avoid issues with gradient checkpointing
     )
 
     # Trainer
