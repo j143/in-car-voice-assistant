@@ -115,3 +115,9 @@ class VoiceAssistantPipeline:
             "confidence": float(classification.get("confidence", 0.0) or 0.0),
             "context": context,
         }
+
+
+class InCarVoiceAssistant(VoiceAssistantPipeline):
+    """Backward-compatible alias for CI/imports."""
+
+    pass
