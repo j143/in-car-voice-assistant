@@ -1,3 +1,4 @@
-# Optional RAG dependencies
-faiss-cpu==1.7.4
-sentence-transformers==2.2.2
+# RAG dependencies (optional, for FAISS-backed retrieval)
+faiss-cpu>=1.7.4
+sentence-transformers>=2.2.2
+

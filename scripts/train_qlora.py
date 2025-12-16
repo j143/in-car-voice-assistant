@@ -43,7 +43,19 @@ class DomainDataset:
 
     def __getitem__(self, idx):
         formatted = format_sample(self.samples[idx])
-        return self.tokenizer(formatted, truncation=True, max_length=512, padding="max_length")
+        tokenized = self.tokenizer(
+            formatted, 
+            truncation=True, 
+            max_length=512, 
+            padding="max_length",
+            return_tensors="pt"
+        )
+        # Return as dict without extra nesting
+        return {
+            "input_ids": tokenized["input_ids"].squeeze(),
+            "attention_mask": tokenized["attention_mask"].squeeze(),
+            "labels": tokenized["input_ids"].squeeze(),
+        }
 
 
 def train_qlora(
@@ -77,8 +89,9 @@ def train_qlora(
         quantization_config=bnb_config,
         device_map="auto",
         trust_remote_code=True,
+        torch_dtype=torch.bfloat16,
     )
-    model = prepare_model_for_kbit_training(model)
+    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
 
     # Configure LoRA
     lora_config = LoraConfig(
@@ -106,10 +119,14 @@ def train_qlora(
         per_device_train_batch_size=batch_size,
         gradient_accumulation_steps=4,
         learning_rate=2e-4,
-        fp16=True,
-        logging_steps=10,
+        fp16=False,  # Use bf16 instead for better stability
+        bf16=True,
+        logging_steps=5,
         save_strategy="epoch",
+        warmup_steps=10,
+        optim="paged_adamw_8bit",
         report_to=["none"],  # Can enable MLFlow here
+        remove_unused_columns=False,
     )
 
     # Trainer

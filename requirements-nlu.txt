@@ -1,3 +1,5 @@
-# Optional NLU dependencies
-transformers==4.35.2
-torch==2.0.1
+# NLU dependencies (optional, for Hugging Face models)
+transformers>=4.38.0
+torch>=2.0.1
+accelerate>=0.21.0
+
