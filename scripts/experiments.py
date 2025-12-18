@@ -8,9 +8,13 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+import sys
 import time
 from pathlib import Path
 from typing import Dict, List
+
+# Add parent directory to path so pipeline module can be imported
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pipeline.end_to_end import VoiceAssistantPipeline
 from scripts.evaluate_intent import load_lines, evaluate

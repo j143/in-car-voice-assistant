@@ -1,6 +1,10 @@
 import argparse
 import json
+import sys
 from pathlib import Path
+
+# Add parent directory to path so pipeline module can be imported
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pipeline.end_to_end import VoiceAssistantPipeline
 
