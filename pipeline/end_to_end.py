@@ -17,7 +17,7 @@ class VoiceAssistantPipeline:
     def __init__(
         self,
         use_rag: bool = True,
-        nlu_model_name: str = "distilbert-base-uncased-finetuned-sst-2-english",
+        nlu_model_name: str = "microsoft/phi-2",  # Default matches training model
         classifier_type: str = "rule",  # 'rule' | 'svm'
         rag_type: str = "kb",  # 'kb' | 'faiss'
         adapter_path: Optional[str] = None,  # Path to LoRA adapter for domain adaptation
@@ -26,7 +26,7 @@ class VoiceAssistantPipeline:
 
         Args:
             use_rag: Whether to enable RAG context retrieval
-            nlu_model_name: Hugging Face model id for NLU
+            nlu_model_name: Hugging Face model id for NLU (default: microsoft/phi-2)
             classifier_type: Classifier to use ('rule' or 'svm')
             rag_type: RAG backend ('kb' or 'faiss')
             adapter_path: Optional path to LoRA adapter checkpoint for domain-adapted inference
