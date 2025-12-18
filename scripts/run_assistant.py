@@ -16,10 +16,16 @@ def main():
     group.add_argument("--audio", type=Path, help="Path to raw PCM16 audio file to process")
     parser.add_argument("--classifier", choices=["rule", "svm"], default="rule", help="Classifier backend")
     parser.add_argument("--rag", choices=["kb", "faiss", "off"], default="kb", help="RAG backend")
+    parser.add_argument("--adapter", type=Path, default=None, help="Path to LoRA adapter checkpoint for domain adaptation")
     args = parser.parse_args()
 
     use_rag = args.rag != "off"
-    pipeline = VoiceAssistantPipeline(use_rag=use_rag, classifier_type=args.classifier, rag_type=(args.rag if use_rag else "kb"))
+    pipeline = VoiceAssistantPipeline(
+        use_rag=use_rag, 
+        classifier_type=args.classifier, 
+        rag_type=(args.rag if use_rag else "kb"),
+        adapter_path=str(args.adapter) if args.adapter else None
+    )
 
     if args.text is not None:
         result = pipeline.process_text(args.text)
