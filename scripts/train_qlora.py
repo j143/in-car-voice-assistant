@@ -65,6 +65,7 @@ def train_qlora(
     epochs: int = 3,
     batch_size: int = 4,
     lora_rank: int = 16,
+    use_mlflow: bool = True,
 ):
     if not DEPS_AVAILABLE:
         print("Training dependencies not available. Install requirements-train.txt")
