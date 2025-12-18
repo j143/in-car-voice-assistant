@@ -12,9 +12,13 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+import sys
 import time
 from pathlib import Path
 from typing import Dict, List
+
+# Add parent directory to path so pipeline module can be imported
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pipeline.end_to_end import VoiceAssistantPipeline
 
@@ -23,8 +27,13 @@ def load_test_set(path: Path) -> List[Dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def evaluate_domain_performance(test_path: Path, classifier: str = "rule", rag: str = "off") -> Dict:
-    pipeline = VoiceAssistantPipeline(use_rag=(rag != "off"), classifier_type=classifier, rag_type=rag)
+def evaluate_domain_performance(test_path: Path, classifier: str = "rule", rag: str = "off", adapter_path: Optional[str] = None) -> Dict:
+    pipeline = VoiceAssistantPipeline(
+        use_rag=(rag != "off"), 
+        classifier_type=classifier, 
+        rag_type=rag,
+        adapter_path=adapter_path
+    )
     test_samples = load_test_set(test_path)
     
     total = len(test_samples)
@@ -80,9 +89,10 @@ def main():
     ap.add_argument("--test", type=Path, default=Path("data/automotive_domain_test.jsonl"))
     ap.add_argument("--classifier", default="rule", choices=["rule", "svm"])
     ap.add_argument("--rag", default="off", choices=["off", "kb", "faiss"])
+    ap.add_argument("--adapter", type=Path, default=None, help="Path to LoRA adapter checkpoint")
     args = ap.parse_args()
     
-    results = evaluate_domain_performance(args.test, args.classifier, args.rag)
+    results = evaluate_domain_performance(args.test, args.classifier, args.rag, adapter_path=str(args.adapter) if args.adapter else None)
     print(json.dumps(results, indent=2))
     
     # Print summary

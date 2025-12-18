@@ -20,15 +20,19 @@ class VoiceAssistantPipeline:
         nlu_model_name: str = "distilbert-base-uncased-finetuned-sst-2-english",
         classifier_type: str = "rule",  # 'rule' | 'svm'
         rag_type: str = "kb",  # 'kb' | 'faiss'
+        adapter_path: Optional[str] = None,  # Path to LoRA adapter for domain adaptation
     ) -> None:
         """Initialize and wire all components.
 
         Args:
             use_rag: Whether to enable RAG context retrieval
             nlu_model_name: Hugging Face model id for NLU
+            classifier_type: Classifier to use ('rule' or 'svm')
+            rag_type: RAG backend ('kb' or 'faiss')
+            adapter_path: Optional path to LoRA adapter checkpoint for domain-adapted inference
         """
         self.stt = VoskSTTEngine()
-        self.nlu = QuantizedNLUPipeline(model_name=nlu_model_name)
+        self.nlu = QuantizedNLUPipeline(model_name=nlu_model_name, adapter_path=adapter_path)
 
         # Classifier selection with safe fallback
         self.classifier = CommandClassifier()

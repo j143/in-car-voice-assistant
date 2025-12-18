@@ -9,8 +9,10 @@ from typing import Dict, Any, Optional
 try:
     from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer
     import torch
+    from peft import PeftModel
 except ImportError:
     torch = None
+    PeftModel = None
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +25,20 @@ class QuantizedNLUPipeline:
     """
     
     def __init__(self, model_name: str = "distilbert-base-uncased-finetuned-sst-2-english", 
-                 use_quantization: bool = True, quantization_bits: int = 8):
+                 use_quantization: bool = True, quantization_bits: int = 8,
+                 adapter_path: Optional[str] = None):
         """Initialize the NLU pipeline.
         
         Args:
             model_name: Hugging Face model identifier
             use_quantization: Whether to apply quantization
             quantization_bits: Quantization bit depth (8 or 4)
+            adapter_path: Optional path to LoRA adapter (for fine-tuned models)
         """
         self.model_name = model_name
         self.use_quantization = use_quantization
         self.quantization_bits = quantization_bits
+        self.adapter_path = adapter_path
         self.pipeline = None
         self._is_loaded = False
         self._load_model()
@@ -45,13 +50,30 @@ class QuantizedNLUPipeline:
             return
         
         try:
+            # Load base model
+            model = AutoModelForSequenceClassification.from_pretrained(
+                self.model_name,
+                trust_remote_code=True
+            )
+            
+            # Load LoRA adapter if provided
+            if self.adapter_path and PeftModel is not None:
+                try:
+                    model = PeftModel.from_pretrained(model, self.adapter_path)
+                    logger.info(f"Loaded LoRA adapter from {self.adapter_path}")
+                except Exception as e:
+                    logger.warning(f"Could not load adapter from {self.adapter_path}: {e}")
+            
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name, trust_remote_code=True)
+            
             self.pipeline = pipeline(
                 "text-classification",
-                model=self.model_name,
+                model=model,
+                tokenizer=tokenizer,
                 device=0 if torch.cuda.is_available() else -1
             )
             self._is_loaded = True
-            logger.info(f"NLU pipeline loaded: {self.model_name}")
+            logger.info(f"NLU pipeline loaded: {self.model_name}" + (f" + adapter: {self.adapter_path}" if self.adapter_path else ""))
         except Exception as e:
             logger.error(f"Failed to load NLU model: {e}")
             self._is_loaded = False

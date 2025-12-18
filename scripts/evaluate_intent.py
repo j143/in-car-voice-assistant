@@ -12,9 +12,13 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
+
+# Add parent directory to path so pipeline module can be imported
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pipeline.end_to_end import VoiceAssistantPipeline
 from collections import defaultdict
@@ -30,8 +34,13 @@ def load_lines(path: Path) -> List[Dict]:
     raise ValueError("Unsupported file format; use .jsonl or .csv")
 
 
-def evaluate(dataset: List[Dict], classifier: str, rag: str) -> Dict:
-    p = VoiceAssistantPipeline(use_rag=(rag != "off"), classifier_type=classifier, rag_type=(rag if rag != "off" else "kb"))
+def evaluate(dataset: List[Dict], classifier: str, rag: str, adapter_path: Optional[str] = None) -> Dict:
+    p = VoiceAssistantPipeline(
+        use_rag=(rag != "off"), 
+        classifier_type=classifier, 
+        rag_type=(rag if rag != "off" else "kb"),
+        adapter_path=adapter_path
+    )
     total = 0
     correct = 0
     confusion = Counter()
@@ -111,10 +120,11 @@ def main():
     ap.add_argument("dataset", type=Path, help="Path to JSONL/CSV dataset")
     ap.add_argument("--classifier", choices=["rule", "svm"], default="rule")
     ap.add_argument("--rag", choices=["kb", "faiss", "off"], default="off")
+    ap.add_argument("--adapter", type=Path, default=None, help="Path to LoRA adapter checkpoint")
     args = ap.parse_args()
 
     data = load_lines(args.dataset)
-    res = evaluate(data, classifier=args.classifier, rag=args.rag)
+    res = evaluate(data, classifier=args.classifier, rag=args.rag, adapter_path=str(args.adapter) if args.adapter else None)
     print(json.dumps(res, indent=2))
 
 
