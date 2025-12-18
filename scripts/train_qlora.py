@@ -94,11 +94,22 @@ def train_qlora(
     )
     model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
 
-    # Configure LoRA
+    # Phi-2 uses explicit q/k/v projections plus dense + MLP (fc1/fc2). Hard-code to avoid mismatches.
+    target_modules = [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "dense",  # attention output
+        "fc1",
+        "fc2",
+    ]
+    print(f"LoRA target modules (phi-2): {target_modules}")
+
+    # Configure LoRA using detected modules
     lora_config = LoraConfig(
         r=lora_rank,
         lora_alpha=32,
-        target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+        target_modules=target_modules,
         lora_dropout=0.05,
         bias="none",
         task_type="CAUSAL_LM",
