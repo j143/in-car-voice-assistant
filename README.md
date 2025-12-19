@@ -388,10 +388,6 @@ PYTHONPATH=. python scripts/evaluate_domain.py --test data/automotive_domain_tes
 - PEFT/LoRA: https://github.com/huggingface/peft
 - BitsAndBytes: https://github.com/TimDettmers/bitsandbytes
 
-## License
+## Disclaimer
 
-MIT
-
-## Contributing
-
-Contributions welcome! Please see CONTRIBUTING.md for guidelines.
+_"Not affiliated with Bosch"_, this repository is for research and experimentation purpose.
