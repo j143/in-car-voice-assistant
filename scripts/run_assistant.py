@@ -17,6 +17,7 @@ def main():
     parser.add_argument("--classifier", choices=["rule", "svm"], default="rule", help="Classifier backend")
     parser.add_argument("--rag", choices=["kb", "faiss", "off"], default="kb", help="RAG backend")
     parser.add_argument("--adapter", type=Path, default=None, help="Path to LoRA adapter checkpoint for domain adaptation")
+    parser.add_argument("--summary", action="store_true", help="Print concise summary (command and parameters)")
     args = parser.parse_args()
 
     use_rag = args.rag != "off"
@@ -33,7 +34,12 @@ def main():
         audio_bytes = args.audio.read_bytes()
         result = pipeline.process_audio(audio_bytes)
 
-    print(json.dumps(result, indent=2))
+    if args.summary:
+        cmd = result.get("command", "unknown")
+        params = result.get("parameters", {}) or {}
+        print(json.dumps({"command": cmd, "parameters": params}, indent=2))
+    else:
+        print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

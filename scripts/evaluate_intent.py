@@ -15,7 +15,7 @@ import json
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple, Optional
 
 # Add parent directory to path so pipeline module can be imported
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -49,6 +49,12 @@ def evaluate(dataset: List[Dict], classifier: str, rag: str, adapter_path: Optio
     ood_pred = 0
     confidences = []
 
+    # Parameter extraction counters
+    total_with_codes = 0
+    matched_codes = 0
+    total_with_terms = 0
+    matched_terms = 0
+
     for row in dataset:
         text = str(row.get("text", ""))
         label = str(row.get("label", "unknown")).lower().strip()
@@ -67,6 +73,23 @@ def evaluate(dataset: List[Dict], classifier: str, rag: str, adapter_path: Optio
         if pred == "unknown" or pred == "ood":
             ood_pred += 1
         confidences.append({"label": label, "pred": pred, "score": float(out.get("confidence", 0.0) or 0.0)})
+
+        # Parameter extraction checks (if dataset provides ground truth)
+        gt_codes = row.get("error_codes") or []
+        gt_terms = row.get("technical_terms") or []
+        pred_params = out.get("parameters", {}) or {}
+        pred_codes = pred_params.get("codes") or []
+        pred_terms = pred_params.get("terms") or []
+
+        if gt_codes:
+            total_with_codes += 1
+            # consider a match if any code overlaps
+            if any(c in pred_codes for c in gt_codes):
+                matched_codes += 1
+        if gt_terms:
+            total_with_terms += 1
+            if any(t in pred_terms for t in gt_terms):
+                matched_terms += 1
 
     acc = correct / total if total else 0.0
     ood_rate = ood_pred / total if total else 0.0
@@ -95,6 +118,12 @@ def evaluate(dataset: List[Dict], classifier: str, rag: str, adapter_path: Optio
         "ood_auroc": round(ood_auroc, 4),
         "per_class": per_class,
         "top_confusions": confusion.most_common(10),
+        "parameters": {
+            "codes_coverage": total_with_codes,
+            "codes_match_rate": round((matched_codes / total_with_codes) if total_with_codes else 0.0, 4),
+            "terms_coverage": total_with_terms,
+            "terms_match_rate": round((matched_terms / total_with_terms) if total_with_terms else 0.0, 4),
+        },
     }
 
 

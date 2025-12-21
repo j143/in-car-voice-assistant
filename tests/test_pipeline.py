@@ -1,5 +1,10 @@
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import numpy as np
 from pipeline.end_to_end import VoiceAssistantPipeline
+
 
 
 def test_process_text_minimal():
