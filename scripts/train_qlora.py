@@ -13,7 +13,13 @@ from typing import Dict, List
 
 try:
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
+    from transformers import (
+        AutoModelForCausalLM, 
+        AutoTokenizer, 
+        TrainingArguments, 
+        Trainer,
+        DataCollatorForLanguageModeling
+    )
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
     from transformers import BitsAndBytesConfig
     DEPS_AVAILABLE = True
@@ -22,39 +28,61 @@ except ImportError:
 
 
 def load_dataset(path: Path) -> List[Dict]:
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    """Robustly load dataset line by line."""
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset not found at {path}")
+    
+    data = []
+    with open(path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+        print(f"Reading {len(lines)} lines from {path}...")
+        for i, line in enumerate(lines):
+            if line.strip():
+                try:
+                    data.append(json.loads(line))
+                except json.JSONDecodeError as e:
+                    print(f"Skipping malformed JSON at line {i+1}: {e}")
+    return data
 
 
 def format_sample(sample: Dict) -> str:
     """Format sample for instruction tuning."""
-    text = sample["text"]
-    intent = sample["intent"]
+    text = sample.get("text", "")
+    intent = sample.get("intent", "unknown")
     command = sample.get("command", "unknown")
     return f"User: {text}\nAssistant: Intent={intent}, Command={command}"
 
 
-class DomainDataset:
-    def __init__(self, samples: List[Dict], tokenizer):
-        self.samples = samples
-        self.tokenizer = tokenizer
+class DomainDataset(torch.utils.data.Dataset):
+    def __init__(self, samples: List[Dict], tokenizer, max_length: int = 512):
+        self.input_ids = []
+        self.attention_masks = []
+        
+        print("Pre-tokenizing dataset for efficiency...")
+        for sample in samples:
+            formatted = format_sample(sample)
+            # Tokenize without padding (dynamic padding handled by collator)
+            tokenized = tokenizer(
+                formatted, 
+                truncation=True, 
+                max_length=max_length, 
+                padding=False,  # Important: Do not pad here
+                return_tensors=None 
+            )
+            self.input_ids.append(tokenized["input_ids"])
+            self.attention_masks.append(tokenized["attention_mask"])
+            
+        print(f"Tokenized {len(self.input_ids)} samples.")
 
     def __len__(self):
-        return len(self.samples)
+        return len(self.input_ids)
 
     def __getitem__(self, idx):
-        formatted = format_sample(self.samples[idx])
-        tokenized = self.tokenizer(
-            formatted, 
-            truncation=True, 
-            max_length=512, 
-            padding="max_length",
-            return_tensors="pt"
-        )
-        # Return as dict without extra nesting
+        # FIX: Do not return 'labels' here. 
+        # The DataCollator will automatically generate them from input_ids after padding.
         return {
-            "input_ids": tokenized["input_ids"].squeeze(),
-            "attention_mask": tokenized["attention_mask"].squeeze(),
-            "labels": tokenized["input_ids"].squeeze(),
+            "input_ids": self.input_ids[idx],
+            "attention_mask": self.attention_masks[idx]
         }
 
 
@@ -73,13 +101,16 @@ def train_qlora(
 
     # Load dataset
     train_samples = load_dataset(train_path)
-    print(f"Loaded {len(train_samples)} training samples")
+    if not train_samples:
+        print("Error: No training samples loaded. Check your JSONL file.")
+        return
+    print(f"Successfully loaded {len(train_samples)} valid samples.")
 
     # Configure quantization
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_compute_dtype=torch.float16, # Changed to float16 for better compatibility
         bnb_4bit_use_double_quant=True,
     )
 
@@ -90,9 +121,12 @@ def train_qlora(
         quantization_config=bnb_config,
         device_map="auto",
         trust_remote_code=True,
-        torch_dtype=torch.bfloat16,
+        # torch_dtype=torch.float16, # Allow auto-detection
     )
-    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
+    
+    # SPEED OPTIMIZATION: Disable gradient checkpointing for small models (Phi-2)
+    # Only enable this if you run out of VRAM (OOM error).
+    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=False)
 
     # Phi-2 uses explicit q/k/v projections plus dense + MLP (fc1/fc2). Hard-code to avoid mismatches.
     target_modules = [
@@ -105,7 +139,7 @@ def train_qlora(
     ]
     print(f"LoRA target modules (phi-2): {target_modules}")
 
-    # Configure LoRA using detected modules
+    # Configure LoRA
     lora_config = LoraConfig(
         r=lora_rank,
         lora_alpha=32,
@@ -120,9 +154,17 @@ def train_qlora(
     # Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
+    # Fix potential padding side issues
+    tokenizer.padding_side = "right" 
 
     # Dataset
     train_dataset = DomainDataset(train_samples, tokenizer)
+    
+    # Data collator handles dynamic padding AND label creation
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer, 
+        mlm=False  # This ensures labels are created correctly for Causal LM
+    )
 
     # Training arguments
     training_args = TrainingArguments(
@@ -131,14 +173,16 @@ def train_qlora(
         per_device_train_batch_size=batch_size,
         gradient_accumulation_steps=4,
         learning_rate=2e-4,
-        fp16=False,  # Use bf16 instead for better stability
-        bf16=True,
+        # SPEED OPTIMIZATION: Use FP16 instead of BF16 unless on Ampere (A100/3090)
+        fp16=True,  
+        bf16=False, 
         logging_steps=5,
         save_strategy="epoch",
         warmup_steps=10,
         optim="paged_adamw_8bit",
         report_to=["mlflow"] if use_mlflow else ["none"],
         remove_unused_columns=False,
+        dataloader_num_workers=2, # Use workers to speed up data fetching
     )
 
     # Trainer
@@ -146,6 +190,7 @@ def train_qlora(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
+        data_collator=data_collator,
     )
 
     print("Starting training...")
