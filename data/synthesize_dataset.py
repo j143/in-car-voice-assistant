@@ -24,11 +24,11 @@ from collections import defaultdict
 import logging
 from datetime import datetime
 
-# If using OpenAI API (recommended for quality)
+# If using Google Gemini API (recommended for quality)
 try:
-    import openai
+    from google import genai
 except ImportError:
-    openai = None
+    genai = None
 
 # Set up logging
 logging.basicConfig(
@@ -84,27 +84,119 @@ class BoschDatasetSynthesizer:
         return groups
     
     def synthesize_paraphrases(self, seed: BoschExample, count: int = 5) -> List[BoschExample]:
-        """Generate N paraphrased variants of a seed example"""
+        """Generate N paraphrased variants of a seed example using Google Gemini API if available"""
         variants = []
+        api_used = False
         
-        # Template-based paraphrasing (no API needed)
-        paraphrase_templates = self._get_paraphrase_templates(seed)
+        if genai and self.api_key:
+            try:
+                client = genai.Client(api_key=self.api_key)
+                
+                prompt = (
+                    f"You are an expert automotive NLP assistant. Paraphrase the following automotive command or query "
+                    f"in {count} different natural ways. Keep the meaning intact, use colloquial language where appropriate, "
+                    f"and avoid repetition. Return ONLY the paraphrases separated by newlines, one per line, without numbering.\n\n"
+                    f"Original: '{seed.text}'\n\n"
+                    f"Paraphrases (one per line):"
+                )
+                
+                response = client.models.generate_content(
+                    model="gemini-3-pro-preview",
+                    contents=prompt,
+                )
+                
+                output = response.text
+                logger.info(f"✓ Gemini API call successful for seed: {seed.text[:50]}...")
+                api_used = True
+                
+                # Parse paraphrases from output
+                lines = output.split('\n')
+                paraphrases = []
+                for line in lines:
+                    line = line.strip()
+                    # Remove numbering if present (1., 2., etc.)
+                    if line and not line.lower().startswith(('paraphrase', 'original')):
+                        # Clean up common patterns
+                        line = line.lstrip('0123456789.-) ')
+                        if line and len(line) > 5:
+                            paraphrases.append(line)
+                
+                # Keep unique ones and filter duplicates of original
+                unique_paraphrases = []
+                seen = {seed.text.lower().strip()}
+                for p in paraphrases[:count]:
+                    p_lower = p.lower().strip()
+                    if p_lower not in seen:
+                        unique_paraphrases.append(p)
+                        seen.add(p_lower)
+                
+                # Create variant examples
+                for i, paraphrase in enumerate(unique_paraphrases):
+                    variant = BoschExample(
+                        id=len(self.generated) + i,
+                        intent=seed.intent,
+                        text=paraphrase,
+                        technical_terms=seed.technical_terms,
+                        error_codes=seed.error_codes,
+                        subsystem=seed.subsystem,
+                        command=seed.command,
+                        severity=seed.severity,
+                        expected=seed.expected,
+                        source=seed.source,
+                        variant_type="paraphrase_gemini"
+                    )
+                    variants.append(variant)
+                
+                # If not enough, fallback to template-based
+                if len(variants) < count:
+                    logger.info(f"  Got {len(variants)} Gemini paraphrases, filling remaining {count - len(variants)} from templates")
+                    paraphrase_templates = self._get_paraphrase_templates(seed)
+                    for i, template in enumerate(paraphrase_templates[:count-len(variants)]):
+                        if template.lower().strip() not in seen:
+                            variant = BoschExample(
+                                id=len(self.generated) + len(variants) + i,
+                                intent=seed.intent,
+                                text=template,
+                                technical_terms=seed.technical_terms,
+                                error_codes=seed.error_codes,
+                                subsystem=seed.subsystem,
+                                command=seed.command,
+                                severity=seed.severity,
+                                expected=seed.expected,
+                                source=seed.source,
+                                variant_type="paraphrase"
+                            )
+                            variants.append(variant)
+                            seen.add(template.lower().strip())
+                
+            except Exception as e:
+                error_msg = str(e)
+                if "quota" in error_msg.lower() or "insufficient" in error_msg.lower():
+                    logger.warning(f"✗ Gemini API quota exceeded. Using template-based paraphrasing instead.")
+                elif "api_key" in error_msg.lower() or "invalid" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                    logger.warning(f"✗ Invalid Gemini API key. Using template-based paraphrasing instead.")
+                else:
+                    logger.warning(f"✗ Gemini API call failed: {type(e).__name__}: {error_msg}. Falling back to templates.")
+                api_used = False
         
-        for i, template in enumerate(paraphrase_templates[:count]):
-            variant = BoschExample(
-                id=len(self.generated) + i,
-                intent=seed.intent,
-                text=template,
-                technical_terms=seed.technical_terms,
-                error_codes=seed.error_codes,
-                subsystem=seed.subsystem,
-                command=seed.command,
-                severity=seed.severity,
-                expected=seed.expected,
-                source=seed.source,
-                variant_type="paraphrase"
-            )
-            variants.append(variant)
+        # If API wasn't used or failed, use template-based approach
+        if not api_used or not variants:
+            paraphrase_templates = self._get_paraphrase_templates(seed)
+            for i, template in enumerate(paraphrase_templates[:count]):
+                variant = BoschExample(
+                    id=len(self.generated) + i,
+                    intent=seed.intent,
+                    text=template,
+                    technical_terms=seed.technical_terms,
+                    error_codes=seed.error_codes,
+                    subsystem=seed.subsystem,
+                    command=seed.command,
+                    severity=seed.severity,
+                    expected=seed.expected,
+                    source=seed.source,
+                    variant_type="paraphrase"
+                )
+                variants.append(variant)
         
         return variants
     
