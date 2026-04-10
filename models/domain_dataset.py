@@ -47,5 +47,5 @@ class DomainDataset:
         return {
             "input_ids": input_ids,
             "attention_mask": tokenized["attention_mask"].squeeze(),
-            "labels": input_ids.clone(),
+            "labels": input_ids.clone(),  # Labels == input_ids for causal LM training
         }
