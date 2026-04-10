@@ -7,7 +7,7 @@ This script takes 100 seed examples and synthesizes 10,000+ training examples
 through controlled paraphrasing, noise injection, and variant generation.
 
 Usage:
-    python3 synthesize_bosch_dataset.py --seed-file bosch_dataset_seed.jsonl --output-file bosch_dataset_10k.jsonl --multiplier 50
+    python3 synthesize_dataset.py --seed-file bosch_dataset_seed.jsonl --output-file bosch_dataset_10k.jsonl --multiplier 50
 
 Prerequisites:
     pip install openai pydantic python-dotenv tqdm
@@ -80,7 +80,7 @@ class BoschDatasetSynthesizer:
         groups = defaultdict(list)
         for ex in self.seeds:
             groups[ex.intent].append(ex)
-        logger.info(f"Intent distribution: {dict(groups)}")
+        logger.info(f"Intent distribution: { {intent: len(examples) for intent, examples in groups.items()} }")
         return groups
     
     def synthesize_paraphrases(self, seed: BoschExample, count: int = 5) -> List[BoschExample]:
