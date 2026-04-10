@@ -120,214 +120,133 @@ This project implements an **edge-optimized voice command system** for automotiv
 ```
 in-car-voice-assistant/
 ├── data/
-│   ├── raw/                    # AISHELL-5, voice datasets
-│   ├── synthetic/              # Generated dialog JSONL
-│   └── processed/              # Tokenized, stratified splits
+│   ├── automotive_domain_train.jsonl   # 25 training samples (error codes, part numbers)
+│   ├── automotive_domain_test.jsonl    # 15 test samples
+│   └── bosch_dataset_seed.jsonl        # 99 seed samples for synthesis
 ├── models/
-│   ├── stt_engine.py          # Vosk wrapper
-│   ├── nlu_pipeline.py        # Quantized LLM pipeline
-│   ├── command_classifier.py  # SVM + OOD detection
-│   └── rag_component.py       # FAISS indexing & retrieval
-├── fine_tuning/
-│   ├── lora_config.py         # PEFT configurations
-│   ├── train.py               # QLoRA training loop
-│   └── eval.py                # Validation metrics
+│   ├── stt_engine.py                  # Vosk wrapper (lazy-loaded)
+│   ├── nlu_pipeline.py                # Quantized LLM pipeline (Phi-2 / DistilBERT)
+│   ├── command_classifier.py          # Rule-based intent → command mapper
+│   ├── command_classifier_svm.py      # Optional SVM classifier with OOD detection
+│   ├── rag_component.py               # Knowledge-base RAG
+│   ├── rag_faiss.py                   # Optional FAISS-indexed RAG
+│   ├── lora_tuner.py                  # LoRA/QLoRA fine-tuning wrapper
+│   ├── domain_dataset.py              # PyTorch Dataset for JSONL samples
+│   └── telemetry.py                   # Mock vehicle telemetry adapter
 ├── pipeline/
-│   ├── end_to_end.py          # Full inference pipeline
-│   └── integration_test.py
+│   └── end_to_end.py                  # Full STT → NLU → Classifier → RAG pipeline
 ├── scripts/
-│   ├── download_datasets.sh   # AISHELL-5, voice_datasets
-│   ├── prepare_synthetic.py   # Generate dialog data
-│   └── benchmark.py           # Latency/memory profiling
+│   ├── run_assistant.py               # CLI: run the assistant on text or audio
+│   ├── evaluate_domain.py             # Domain evaluation (accuracy, latency)
+│   ├── experiments.py                 # Sweep all classifier × RAG configs
+│   ├── benchmark_latency.py           # Latency profiler
+│   ├── train_qlora.py                 # QLoRA fine-tuning (requires GPU)
+│   ├── export_awq.py                  # AWQ 4-bit export for edge (requires GPU)
+│   ├── synthesize_dataset.py          # Expand seed data to 10k samples (OpenAI API)
+│   ├── prepare_synthetic.py           # Simple synthetic data generator (no API)
+│   ├── label_dataset.py               # Label a plain-text file to JSONL
+│   ├── clean_logs.py                  # Log cleanup utility
+│   └── telemetry_sim.py               # Telemetry simulation
+├── tests/
+│   ├── test_pipeline.py               # Pipeline unit tests
+│   └── sample_eval.jsonl              # Small evaluation fixture
 ├── notebooks/
-│   ├── data_exploration.ipynb
-│   └── fine_tuning_demo.ipynb
-├── requirements.txt
-├── .gitignore
+│   └── edge_optimization.ipynb        # Track baseline → QLoRA → AWQ metrics
+├── config/
+│   └── assistant.yaml                 # Default component selections
+├── Dockerfile                         # Slim image for local/CI use
+├── Dockerfile.orin                    # NVIDIA Jetson Orin deployment image
+├── requirements.txt                   # Full dependencies
+├── requirements-min.txt               # Minimal (text-only, no model downloads)
+├── requirements-nlu.txt               # NLU pipeline dependencies
+├── requirements-rag.txt               # RAG/FAISS dependencies
+├── requirements-train.txt             # QLoRA training dependencies
+├── requirements-awq.txt               # AWQ export dependencies
 └── README.md
 ```
 
-## Phase 1: Data Collection & Preparation
+## Phase 1: Data
 
-### Datasets
+**Datasets (included):**
+- `data/automotive_domain_train.jsonl` — 25 samples with error codes (P0420, P0171, P0300), part numbers (K 300 503 v17), technical terms
+- `data/automotive_domain_test.jsonl` — 15 evaluation samples
+- `data/bosch_dataset_seed.jsonl` — 99 seed samples for LLM-based expansion
 
-1. **AISHELL-5**: First open in-car multi-channel dataset
-   - Real EV cabin recordings
-   - Multiple driving scenarios (highway, urban, parking)
-   - Download: `python scripts/download_datasets.sh`
-
-2. **jim-schwoebel/voice_datasets**: Catalogued open voice datasets
-   - In-car audio, command datasets, wake words
-   - Links: https://github.com/jim-schwoebel/voice_datasets
-
-3. **Synthetic Data**: Generated using LLM augmentation
-   - Car-related queries, error dialogs, service interactions
-   - Format: JSONL with speaker, intent, text, audio_path
-   - Generated with diverse sentence structures matching real distribution
-
-### Synthetic Data Generation
-
-```python
-from scripts.prepare_synthetic import SyntheticDataGenerator
-
-generator = SyntheticDataGenerator(
-    num_samples=10000,
-    intents=['music_control', 'navigation', 'climate', 'error_handling'],
-    model='mistral-7b',  # Or Phi-3-mini
-    quantization='4bit'
-)
-
-synthetic_df = generator.generate()
-synthetic_df.to_json('data/synthetic/in_car_dialogs.jsonl', orient='records', lines=True)
+**Expand training data (requires OpenAI key):**
+```bash
+python scripts/synthesize_dataset.py \
+  --seed-file data/bosch_dataset_seed.jsonl \
+  --output-file data/automotive_domain_train_10k.jsonl \
+  --multiplier 50
 ```
 
-### Data Processing Pipeline
-
-- **STT Processing**: Convert audio to transcripts using Vosk
-- **Tokenization**: BPE tokenization for quantized model input
-- **Stratification**: Balanced intent distribution across train/val/test
-- **Normalization**: Audio resampling (16kHz), text lowercasing
-
-Output: `data/processed/{train,val,test}_dataset.jsonl`
-
-## Phase 2: Core Pipeline Implementation
-
-### 1. Speech-to-Text (STT)
-
-**File**: `models/stt_engine.py`
-
-```python
-from models.stt_engine import VoskSTTEngine
-
-stt = VoskSTTEngine(
-    model_path='models/vosk_models/en_us',
-    sample_rate=16000
-)
-
-# Streaming transcription
-transcript = stt.transcribe_stream(audio_chunks)
-confidence = stt.get_confidence()
+**Generate synthetic data without API:**
+```bash
+PYTHONPATH=. python scripts/prepare_synthetic.py
 ```
 
-- Lightweight Vosk model (~50MB)
-- Streaming support for real-time processing
-- Noise-robust features for cabin acoustics
+## Phase 2: Pipeline
 
-### 2. Natural Language Understanding (NLU)
+**Components (all implemented):**
+- `models/stt_engine.py` — Vosk STT, lazy-loaded, streaming
+- `models/nlu_pipeline.py` — DistilBERT (default) or Phi-2 with LoRA adapter
+- `models/command_classifier.py` — Rule-based intent → command mapper
+- `models/command_classifier_svm.py` — Optional SVM with OOD detection
+- `models/rag_component.py` — Knowledge-base RAG (no extra deps)
+- `models/rag_faiss.py` — FAISS semantic RAG (optional, requires `requirements-rag.txt`)
 
-**File**: `models/nlu_pipeline.py`
-
-Quantized language model pipeline with BitsAndBytes 4-bit quantization:
-
-```python
-from models.nlu_pipeline import QuantizedNLUPipeline
-from peft import LoraConfig, get_peft_model
-
-config = LoraConfig(
-    r=8,
-    lora_alpha=16,
-    lora_dropout=0.05,
-    bias="none",
-    task_type="CAUSAL_LM"
-)
-
-nlu = QuantizedNLUPipeline(
-    model_name='microsoft/phi-3-mini',  # 3.8B params
-    quantization_config='4bit',
-    lora_config=config
-)
-
-embeddings, logits = nlu.forward(transcript_tokens)
+**Run the pipeline:**
+```bash
+PYTHONPATH=. python scripts/run_assistant.py --text "Error code P0420 detected on ECU"
+# With SVM classifier and FAISS RAG:
+PYTHONPATH=. python scripts/run_assistant.py --text "Set temperature to 72" --classifier svm --rag faiss
 ```
 
-**Key Features**:
-- 4-bit quantization via bitsandbytes
-- LoRA adapters (~0.5% trainable params)
-- Fits in 8GB RAM (GitHub Codespaces constraint)
-- Context window: 2048 tokens
+## Phase 3: QLoRA Fine-Tuning
 
-### 3. Command Classification
-
-**File**: `models/command_classifier.py`
-
-SVM-based intent classifier with OOD detection:
-
-```python
-from models.command_classifier import CommandClassifier
-from sklearn.svm import SVC
-
-classifier = CommandClassifier(
-    svm_kernel='rbf',
-    ood_threshold=0.3,  # Confidence threshold
-    n_intents=5
-)
-
-intent, confidence = classifier.predict(embeddings)
-is_ood = confidence < classifier.ood_threshold
+```bash
+pip install -r requirements-train.txt
+python scripts/train_qlora.py \
+  --model microsoft/phi-2 \
+  --train data/automotive_domain_train.jsonl \
+  --output checkpoints/automotive-adapter \
+  --epochs 3 --batch-size 4
 ```
 
-**Intents** (in-car focused):
-- Music Control (play, pause, volume)
-- Navigation (route, destination)
-- Climate Control (temp, fan, seats)
-- Error Handling (vehicle alerts, diagnostics)
-- OOD Fallback (unknown queries)
-
-### 4. RAG Component
-
-**File**: `models/rag_component.py`
-
-FAISS-indexed retrieval over vehicle specifications:
-
-```python
-from models.rag_component import VehicleRAG
-
-rag = VehicleRAG(
-    pdf_paths=['docs/vehicle_specs.pdf', 'docs/manual.pdf'],
-    chunk_size=512,
-    embedding_model='sentence-transformers/all-minilm-l6-v2'
-)
-
-# Retrieve context for query
-context = rag.retrieve(query_embedding, top_k=3)
+Evaluate with adapter:
+```bash
+PYTHONPATH=. python scripts/evaluate_domain.py \
+  --test data/automotive_domain_test.jsonl \
+  --adapter checkpoints/automotive-adapter
 ```
 
-- Indexes public vehicle documentation PDFs
-- Sentence-Transformers for semantic search
-- Context injection into LLM for grounding
+## Phase 4: AWQ Export & Edge Deployment
 
-## Phase 3: Edge-Optimized Fine-Tuning (Coming Soon)
+```bash
+pip install -r requirements-awq.txt
+python scripts/export_awq.py \
+  --model microsoft/phi-2 \
+  --adapter checkpoints/automotive-adapter \
+  --output exports/automotive-awq-4bit \
+  --w-bit 4
+```
 
-- QLoRA training loop on 8GB RAM
-- Synthetic dataset augmentation strategies
-- Evaluation metrics: Intent accuracy, latency, memory
-
-## Phase 4: Repository & Documentation (Coming Soon)
-
-- GitHub Actions CI/CD
-- Docker containerization
-- Deployment guides for edge devices
+See `DEPLOYMENT.md` for Jetson Orin Docker setup.
 
 ## Installation
 
 ```bash
-# Clone repository
 git clone https://github.com/j143/in-car-voice-assistant.git
 cd in-car-voice-assistant
 
-# Install dependencies
+# Minimal (text path only, no model download)
+pip install -r requirements-min.txt
+
+# Full dependencies
 pip install -r requirements.txt
-
-# Download models and datasets
-python scripts/download_datasets.sh
-
-# Generate synthetic data
-python scripts/prepare_synthetic.py
 ```
 
 ## Usage
-
-### End-to-End Inference (selectors)
 
 ```python
 from pipeline.end_to_end import VoiceAssistantPipeline
@@ -339,24 +258,7 @@ assistant = VoiceAssistantPipeline(
     rag_type='kb'             # or 'faiss'
 )
 
-# Process text (fast path)
 print(assistant.process_text("Set temperature to 72"))
-```
-
-### Training with LoRA
-
-```python
-from fine_tuning.train import LoRATrainer
-
-trainer = LoRATrainer(
-    model='microsoft/phi-3-mini',
-    dataset_path='data/processed/train_dataset.jsonl',
-    output_dir='checkpoints/',
-    num_epochs=3,
-    batch_size=8  # On 8GB RAM
-)
-
-trainer.train()
 ```
 
 ## Benchmarks

@@ -15,7 +15,7 @@ import statistics
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Add parent directory to path so pipeline module can be imported
 sys.path.insert(0, str(Path(__file__).parent.parent))
