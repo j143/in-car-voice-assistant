@@ -16,7 +16,7 @@ _DTC_PATTERN = re.compile(r'\b([PBCU]\d{4})\b', re.I)
 _PART_PATTERN = re.compile(r'\b([A-Z]\s?\d{3}\s?\d{3}(?:\s?\w+)?)\b', re.I)
 # Bare temperature number: "to 72", "at 22", or plain "72"
 _TEMP_PATTERN = re.compile(
-    r'(?:to|at|=)?\s*(\d{1,3})\s*(?:degrees?|°|fahrenheit|celsius|celsius|°[fc]|[fc]\b)?',
+    r'(?:to|at|=)?\s*(\d{1,3})\s*(?:degrees?|°|fahrenheit|celsius|°[fc]|[fc]\b)?',
     re.I,
 )
 # Percentage (volume, fan speed)
@@ -199,9 +199,9 @@ class CommandClassifier:
                 # Detect unit
                 unit_part = (m.group(0) or "").lower()
                 if "celsius" in unit_part or unit_part.endswith("c"):
-                    params["unit"] = "C"
+                    params["unit"] = "Celsius"
                 elif "fahrenheit" in unit_part or unit_part.endswith("f"):
-                    params["unit"] = "F"
+                    params["unit"] = "Fahrenheit"
 
         elif command == VehicleCommand.SET_VOLUME:
             m = _PERCENT_PATTERN.search(text_lower) or _LEVEL_PATTERN.search(text_lower)
