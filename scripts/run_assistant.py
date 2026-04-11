@@ -16,15 +16,23 @@ def main():
     group.add_argument("--audio", type=Path, help="Path to raw PCM16 audio file to process")
     parser.add_argument("--classifier", choices=["rule", "svm"], default="rule", help="Classifier backend")
     parser.add_argument("--rag", choices=["kb", "faiss", "off"], default="kb", help="RAG backend")
+    parser.add_argument(
+        "--nlu",
+        choices=["auto", "cpu", "transformer"],
+        default="auto",
+        help="NLU backend: 'auto' picks CPU when torch is unavailable (default), "
+             "'cpu' forces TF-IDF NLU, 'transformer' requires torch",
+    )
     parser.add_argument("--adapter", type=Path, default=None, help="Path to LoRA adapter checkpoint for domain adaptation")
     args = parser.parse_args()
 
     use_rag = args.rag != "off"
     pipeline = VoiceAssistantPipeline(
-        use_rag=use_rag, 
-        classifier_type=args.classifier, 
+        use_rag=use_rag,
+        nlu_type=args.nlu,
+        classifier_type=args.classifier,
         rag_type=(args.rag if use_rag else "kb"),
-        adapter_path=str(args.adapter) if args.adapter else None
+        adapter_path=str(args.adapter) if args.adapter else None,
     )
 
     if args.text is not None:
