@@ -1,4 +1,5 @@
-# Minimal runtime for text-only pipeline (no NLU model downloads)
-numpy==1.24.3
-requests==2.31.0
-tqdm==4.66.1
+# Minimal runtime for text-only CPU pipeline (no model downloads, no GPU)
+numpy>=1.24
+scikit-learn>=1.3
+requests>=2.31
+tqdm>=4.66
