@@ -1,0 +1,26 @@
+# Google Colab GPU dependencies
+#
+# torch is pre-installed by Colab with CUDA support — do NOT reinstall it here.
+# Run all cells top-to-bottom on a T4/A100 runtime (Runtime → Change runtime type → GPU).
+
+# ── NLU & model loading ──────────────────────────────────────────────────────
+transformers>=4.38.0
+accelerate>=0.21.0
+
+# ── QLoRA fine-tuning ────────────────────────────────────────────────────────
+bitsandbytes>=0.41.3
+peft>=0.7.1
+
+# ── AWQ quantization export ──────────────────────────────────────────────────
+llm-compressor[transformers]>=0.2.0
+
+# ── RAG & vector search ──────────────────────────────────────────────────────
+faiss-cpu>=1.7.4
+sentence-transformers>=2.2.2
+
+# ── Data processing & evaluation ─────────────────────────────────────────────
+scikit-learn>=1.3
+numpy>=1.24
+pandas>=2.0
+tqdm>=4.66
+requests>=2.31
